@@ -1,9 +1,11 @@
+import { getFifteen, getLove, getThirty } from './__tests__/generators';
 import { Player } from './types/player';
-import { Point, PointsData, Score, forty, game, deuce, advantage } from './types/score';
+import { PointType, PointsData, Score, Forty, game, deuce, advantage, forty, PointEnum } from './types/score';
+import * as fc from 'fast-check';
 
 // -------- Tooling functions --------- //
 
-export const playerToString = (player: Player) => {
+export const playerToString = (player: Player): string => {
   switch (player) {
     case 'PLAYER_ONE':
       return 'Player 1';
@@ -12,7 +14,7 @@ export const playerToString = (player: Player) => {
   }
 };
 
-export const otherPlayer = (player: Player) => {
+export const otherPlayer = (player: Player): Player => {
   switch (player) {
     case 'PLAYER_ONE':
       return 'PLAYER_TWO';
@@ -22,7 +24,7 @@ export const otherPlayer = (player: Player) => {
 };
 
 // Exercice 1: pointToString and scoreToString
-export const pointToString = (point: Point): string => {
+export const pointToString = (point: PointType): string => {
   switch (point.kind) {
     case 'LOVE':
       return 'Love';
@@ -30,6 +32,8 @@ export const pointToString = (point: Point): string => {
       return 'Fifteen';
     case 'THIRTY':
       return 'Thirty';
+    case 'FORTY':
+      return 'Forty';
     default:
       throw new Error('Invalid Point');
   }
@@ -38,13 +42,9 @@ export const pointToString = (point: Point): string => {
 export const scoreToString = (score: Score): string => {
   switch (score.kind) {
     case 'POINTS':
-      return `Player One: ${pointToString(score.pointsData.PLAYER_ONE)}, Player Two: ${pointToString(
-        score.pointsData.PLAYER_TWO
-      )}`;
+      return `Player One: ${pointToString(score.pointsData.PLAYER_ONE)}, Player Two: ${pointToString(score.pointsData.PLAYER_TWO)}`;
     case 'FORTY':
-      return `Player ${playerToString(score.fortyData.player)} is at Forty, Opponent has ${pointToString(
-        score.fortyData.otherPoint
-      )}`;
+      return `Player ${playerToString(score.fortyData.player)} is at Forty, Opponent has ${pointToString(score.fortyData.otherPoint)}`;
     case 'DEUCE':
       return 'Deuce';
     case 'ADVANTAGE':
@@ -55,92 +55,21 @@ export const scoreToString = (score: Score): string => {
       throw new Error('Invalid Score');
   }
 };
-
-// Exercice 2: incrementPoint, scoreWhenPoint
-
-const incrementPoint = (point: Point): Point | 'FORTY' => {
+// Update to the incrementPoint function
+export const incrementPoint = (point: PointType): PointType | 'FORTY' => {
   switch (point.kind) {
-    case 'LOVE':
-      return { kind: 'FIFTEEN' };
-    case 'FIFTEEN':
-      return { kind: 'THIRTY' };
-    case 'THIRTY':
-      return 'FORTY'; // Transition to 40
+    case PointEnum.LOVE:
+      return { kind: PointEnum.FIFTEEN };
+    case PointEnum.FIFTEEN:
+      return { kind: PointEnum.THIRTY };
+    case PointEnum.THIRTY:
+      return { kind: PointEnum.FORTY }; // Correct transition to FORTY
     default:
       throw new Error('Invalid point');
   }
 };
-
-export const scoreWhenPoint = (current: PointsData, winner: Player): Score => {
-  const updatedPoints = { ...current };
-
-  if (winner === 'PLAYER_ONE') {
-    const newPoint = incrementPoint(current.PLAYER_ONE);
-    if (newPoint === 'FORTY') {
-      return forty('PLAYER_ONE', current.PLAYER_TWO); // Transition to FORTY
-    }
-    updatedPoints.PLAYER_ONE = newPoint; // Update PLAYER_ONE's points
-  } else {
-    const newPoint = incrementPoint(current.PLAYER_TWO);
-    if (newPoint === 'FORTY') {
-      return forty('PLAYER_TWO', current.PLAYER_ONE); // Transition to FORTY
-    }
-    updatedPoints.PLAYER_TWO = newPoint; // Update PLAYER_TWO's points
-  }
-
-  return {
-    kind: 'POINTS',
-    pointsData: updatedPoints,
-  };
-};
-
-// Exercice 3: scoreWhenAdvantage
-
-export const scoreWhenAdvantage = (advantagedPlayed: Player, winner: Player): Score => {
-  if (winner === advantagedPlayed) {
-    return game(winner); // Winner transitions to Game
-  } else {
-    return deuce(); // If the opponent wins, it goes back to Deuce
-  }
-};
-
-// Exercice 4: scoreWhenForty
-
-export const scoreWhenForty = (currentForty: any, winner: Player): Score => {
-  if (winner === currentForty.fortyData.player) {
-    return game(winner); // Winner transitions to Game
-  } else {
-    return deuce(); // If the opponent wins, it goes back to Deuce
-  }
-};
-
-// Exercice 5: scoreWhenGame
-
-export const scoreWhenGame = (winner: Player): Score => {
-  return game(winner); // Game over, the winner wins
-};
-
-// Exercice 6: scoreWhenDeuce
-
-export const scoreWhenDeuce = (winner: Player): Score => {
-  return advantage(winner); // Transition to Advantage for the winner
-};
-
-// Final: score function
-
-export const score = (currentScore: Score, winner: Player): Score => {
-  switch (currentScore.kind) {
-    case 'POINTS':
-      return scoreWhenPoint(currentScore.pointsData, winner);
-    case 'FORTY':
-      return scoreWhenForty(currentScore.fortyData, winner);
-    case 'ADVANTAGE':
-      return scoreWhenAdvantage(currentScore.player, winner);
-    case 'DEUCE':
-      return scoreWhenDeuce(winner);
-    case 'GAME':
-      return scoreWhenGame(winner);
-    default:
-      throw new Error('Invalid Score');
-  }
-};
+export const getPointsWithThirty = (): fc.Arbitrary<PointsData> =>
+  fc.record({
+    PLAYER_ONE: fc.oneof(getThirty(), getFifteen(), getLove()),
+    PLAYER_TWO: fc.oneof(getThirty(), getFifteen(), getLove()),
+  });

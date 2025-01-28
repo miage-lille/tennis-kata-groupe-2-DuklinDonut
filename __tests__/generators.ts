@@ -1,62 +1,48 @@
 import * as fc from 'fast-check';
 import { Player } from '../types/player';
-import {
+import { 
   advantage,
-  Fifteen,
-  forty,
-  Forty,
+  createForty,
+  FortyType,
   FortyData,
   Love,
-  Point,
+  PointType,
   Points,
   PointsData,
   Score,
   Thirty,
+  Fifteen,
+  PointEnum 
 } from '../types/score';
-// Helper function to increment a player's points
-const incrementPoint = (point: Point): Point | 'FORTY' => {
-  switch (point.kind) {
-    case 'LOVE':
-      return { kind: 'FIFTEEN' };
-    case 'FIFTEEN':
-      return { kind: 'THIRTY' };
-    case 'THIRTY':
-      return 'FORTY'; // Transition to 40
-    default:
-      throw new Error('Invalid point');
-  }
-};
 
-// Implement scoreWhenPoint
-export const scoreWhenPoint = (current: PointsData, winner: Player): Score => {
-  const updatedPoints = { ...current };
 
-  if (winner === 'PLAYER_ONE') {
-    const newPoint = incrementPoint(current.PLAYER_ONE);
-    if (newPoint === 'FORTY') {
-      return forty('PLAYER_ONE', current.PLAYER_TWO); // Transition to FORTY for PLAYER_ONE
-    }
-    updatedPoints.PLAYER_ONE = newPoint; // Update PLAYER_ONE's points
-  } else {
-    const newPoint = incrementPoint(current.PLAYER_TWO);
-    if (newPoint === 'FORTY') {
-      return forty('PLAYER_TWO', current.PLAYER_ONE); // Transition to FORTY for PLAYER_TWO
-    }
-    updatedPoints.PLAYER_TWO = newPoint; // Update PLAYER_TWO's points
-  }
 
-  return {
-    kind: 'POINTS',
-    pointsData: updatedPoints,
-  };
-};
+// Generate a point that is either LOVE or FIFTEEN
+export const getPointLoveOrFifteen = (): fc.Arbitrary<Love | Fifteen> =>
+  fc.oneof(
+    fc.record({
+      kind: fc.constant(PointEnum.LOVE) as fc.Arbitrary<Love['kind']>, // Narrow down the type explicitly
+    }),
+    fc.record({
+      kind: fc.constant(PointEnum.FIFTEEN) as fc.Arbitrary<Fifteen['kind']>, // Same for Fifteen
+    })
+  );
+
+// Generate Points where at least one player is at LOVE or FIFTEEN
+export const getPointsLoveOrFifteen = (): fc.Arbitrary<PointsData> =>
+  fc.record({
+    PLAYER_ONE: getPointLoveOrFifteen(),
+    PLAYER_TWO: getPointLoveOrFifteen(),
+  });
+// Arbitrary generators for testing
 export const playerOneArb = (): fc.Arbitrary<Player> =>
   fc.constant('PLAYER_ONE');
 export const playerTwoArb = (): fc.Arbitrary<Player> =>
   fc.constant('PLAYER_TWO');
 export const getPlayer = () => fc.oneof(playerOneArb(), playerTwoArb());
-export const getPoint = (): fc.Arbitrary<Point> =>
+export const getPoint = (): fc.Arbitrary<PointType> =>
   fc.oneof(getLove(), getFifteen(), getThirty());
+
 export const getPoints = (): fc.Arbitrary<Points> =>
   fc.record({
     kind: fc.constant('POINTS'),
@@ -65,57 +51,47 @@ export const getPoints = (): fc.Arbitrary<Points> =>
       PLAYER_TWO: getPoint(),
     }),
   });
+
 export const getFortyData = (): fc.Arbitrary<FortyData> =>
   fc.record({
     player: getPlayer(),
     otherPoint: getPoint(),
   });
-export const getForty = (): fc.Arbitrary<Forty> =>
+
+export const getForty = (): fc.Arbitrary<FortyType> =>
   fc.record({
     fortyData: getFortyData(),
     kind: fc.constant('FORTY'),
   });
+
+// Updated the generators to use the PointEnum
 export const getLove = (): fc.Arbitrary<Love> =>
   fc.record({
-    kind: fc.constant('LOVE'),
+    kind: fc.constant(PointEnum.LOVE),  // Use PointEnum.LOVE instead of 'LOVE'
   });
 
 export const getThirty = (): fc.Arbitrary<Thirty> =>
   fc.record({
-    kind: fc.constant('THIRTY'),
+    kind: fc.constant(PointEnum.THIRTY),  // Use PointEnum.THIRTY instead of 'THIRTY'
   });
+
 export const getFifteen = (): fc.Arbitrary<Fifteen> =>
   fc.record({
-    kind: fc.constant('FIFTEEN'),
+    kind: fc.constant(PointEnum.FIFTEEN),  // Use PointEnum.FIFTEEN instead of 'FIFTEEN'
   });
-// i added:
-export const getPointLoveOrFifteen = (): fc.Arbitrary<Point> =>
-  fc.oneof(getLove(), getFifteen());
-export const getPointsLoveOrFifteen = (): fc.Arbitrary<Points> =>
-  fc.record({
-    kind: fc.constant('POINTS'),
-    pointsData: fc.record({
-      PLAYER_ONE: getPointLoveOrFifteen(),
-      PLAYER_TWO: getPointLoveOrFifteen(),
-    }),
-  });
+
 // Generates Points where at least one player is at THIRTY
 export const getPointsWithThirty = (): fc.Arbitrary<Points> =>
   fc.record({
     kind: fc.constant('POINTS'),
     pointsData: fc.oneof(
-      // Case 1: PLAYER_ONE is at THIRTY
       fc.record({
         PLAYER_ONE: getThirty(),
-        PLAYER_TWO: fc.oneof(getLove(), getFifteen()), // PLAYER_TWO cannot be THIRTY
+        PLAYER_TWO: fc.oneof(getLove(), getFifteen()),
       }),
-      // Case 2: PLAYER_TWO is at THIRTY
       fc.record({
-        PLAYER_ONE: fc.oneof(getLove(), getFifteen()), // PLAYER_ONE cannot be THIRTY
+        PLAYER_ONE: fc.oneof(getLove(), getFifteen()),
         PLAYER_TWO: getThirty(),
       })
     ),
   });
-export const scoreWhenDeuce = (winner: Player): Score => {
-    return advantage(winner); // Transition to Advantage for the winner
-  };
